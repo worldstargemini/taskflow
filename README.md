@@ -20,3 +20,5 @@ ruff check . && ruff format --check .
 ## Deploy
 See `deploy/` — `taskflow.service` (systemd), `nginx-taskflow.conf`, `deploy.sh`,
 and the workflow files `ci.yml` / `deploy.yml` to copy into `.github/workflows/` (Phases 4 and 6).
+
+Practice project by Qis
