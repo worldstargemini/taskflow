@@ -1,0 +1,38 @@
+# Copy to .github/workflows/deploy.yml in Phase 6.
+# On every push to main: run the CI job, then deploy to EC2 over SSH and smoke-test.
+# Needs repo secrets EC2_HOST (public IP or DNS) and EC2_SSH_KEY (private key of the CI key pair).
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Run deploy script on the server
+        run: ssh -i ~/.ssh/deploy_key ubuntu@${{ secrets.EC2_HOST }} 'bash /opt/taskflow/deploy/deploy.sh'
+
+      - name: Smoke test from outside
+        run: |
+          SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          curl -fsS "http://${{ secrets.EC2_HOST }}/health" | tee health.json
+          grep -q "$SHA" health.json && echo "Live SHA matches $SHA"
